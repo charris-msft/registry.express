@@ -103,16 +103,16 @@ When a user wants to import a server from the official MCP Registry:
 
 ```bash
 # Import latest version (creates single-server file)
-npm run cli import "io.github.user/server-name"
+npm run cli -- import "io.github.user/server-name"
 
 # Import all versions
-npm run cli import "io.github.user/server-name" --all-versions
+npm run cli -- import "io.github.user/server-name" --all-versions
 
 # Import into a specific file (multi-server format)
-npm run cli import "io.github.user/server-name" --file servers/my-favorites.json
+npm run cli -- import "io.github.user/server-name" --file servers/my-favorites.json
 
 # Search first if unsure of exact name
-npm run cli search "keyword"
+npm run cli -- search "keyword"
 ```
 
 ## Task: Update an Existing Server
