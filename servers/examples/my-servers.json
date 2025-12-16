@@ -1,0 +1,85 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "servers": [
+    {
+      "name": "io.github.example/filesystem",
+      "description": "Provides access to the local filesystem with read/write capabilities",
+      "repository": {
+        "url": "https://github.com/example/mcp-servers",
+        "source": "github"
+      },
+      "versions": [
+        {
+          "version": "1.2.0",
+          "releaseDate": "2024-12-01",
+          "isLatest": true,
+          "packages": [
+            {
+              "registryType": "npm",
+              "identifier": "@example/mcp-filesystem",
+              "runtimeHint": "npx",
+              "transport": { "type": "stdio" },
+              "environmentVariables": [
+                {
+                  "name": "ALLOWED_PATHS",
+                  "description": "Comma-separated list of allowed paths",
+                  "required": false
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "version": "1.1.0",
+          "releaseDate": "2024-11-15",
+          "isLatest": false,
+          "packages": [
+            {
+              "registryType": "npm",
+              "identifier": "@example/mcp-filesystem",
+              "runtimeHint": "npx",
+              "transport": { "type": "stdio" }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "io.github.example/database",
+      "description": "PostgreSQL database access with query capabilities",
+      "repository": {
+        "url": "https://github.com/example/mcp-servers",
+        "source": "github",
+        "subfolder": "packages/database"
+      },
+      "versions": [
+        {
+          "version": "2.0.0",
+          "releaseDate": "2024-12-10",
+          "isLatest": true,
+          "packages": [
+            {
+              "registryType": "npm",
+              "identifier": "@example/mcp-database",
+              "runtimeHint": "npx",
+              "transport": { "type": "stdio" },
+              "environmentVariables": [
+                {
+                  "name": "DATABASE_URL",
+                  "description": "PostgreSQL connection string",
+                  "required": true
+                }
+              ]
+            },
+            {
+              "registryType": "oci",
+              "identifier": "ghcr.io/example/mcp-database:2.0.0",
+              "runtimeHint": "docker",
+              "transport": { "type": "stdio" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

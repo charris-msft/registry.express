@@ -1,0 +1,27 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.anthropics/mcp-server-memory",
+  "description": "A simple in-memory key-value store MCP server for testing and development",
+  "repository": {
+    "url": "https://github.com/anthropics/mcp-servers",
+    "source": "github",
+    "subfolder": "packages/memory"
+  },
+  "versions": [
+    {
+      "version": "0.1.0",
+      "releaseDate": "2024-11-01",
+      "isLatest": true,
+      "packages": [
+        {
+          "registryType": "npm",
+          "identifier": "@anthropic/mcp-server-memory",
+          "runtimeHint": "npx",
+          "transport": {
+            "type": "stdio"
+          }
+        }
+      ]
+    }
+  ]
+}

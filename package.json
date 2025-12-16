@@ -1,0 +1,32 @@
+{
+  "name": "mcp-registry-express",
+  "version": "1.0.0",
+  "description": "A simplified MCP Registry for private/self-hosted scenarios",
+  "type": "module",
+  "main": "src/cli/index.js",
+  "bin": {
+    "mcp-registry": "./src/cli/index.js"
+  },
+  "scripts": {
+    "build": "node scripts/build.js",
+    "serve": "npx serve dist",
+    "cli": "node src/cli/index.js",
+    "import": "node src/cli/index.js import",
+    "dev": "node scripts/build.js --watch",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "registry",
+    "ai",
+    "llm"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "chokidar": "^3.6.0"
+  }
+}

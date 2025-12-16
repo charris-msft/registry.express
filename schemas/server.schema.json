@@ -1,0 +1,263 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://registry.express/schemas/server.schema.json",
+  "title": "MCP Server Registry File",
+  "description": "Schema for MCP server definition files in registry.express. Supports both single server and multi-server formats.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/Server",
+      "description": "Single server format"
+    },
+    {
+      "$ref": "#/definitions/ServerCollection",
+      "description": "Multiple servers in one file"
+    }
+  ],
+  "definitions": {
+    "ServerCollection": {
+      "type": "object",
+      "required": ["servers"],
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Reference to this schema"
+        },
+        "servers": {
+          "type": "array",
+          "description": "Array of server definitions",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Server"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "Server": {
+      "type": "object",
+      "required": ["name", "description", "versions"],
+      "properties": {
+        "$schema": {
+          "type": "string",
+          "description": "Reference to this schema"
+        },
+        "name": {
+          "type": "string",
+          "description": "Unique identifier in reverse-DNS format with exactly one slash",
+          "pattern": "^[a-z][a-z0-9-]*(\\.[a-z][a-z0-9-]*)*\\/[a-z][a-z0-9-]*$",
+          "examples": ["io.github.user/my-server", "com.microsoft/playwright"]
+        },
+        "description": {
+          "type": "string",
+          "description": "Human-readable description of the server",
+          "minLength": 1,
+          "maxLength": 500
+        },
+        "repository": {
+          "$ref": "#/definitions/Repository"
+        },
+        "websiteUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL to the server's website or documentation"
+        },
+        "versions": {
+          "type": "array",
+          "description": "Array of version definitions, newest first",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Version"
+          }
+        }
+      }
+    },
+    "Repository": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "Repository URL (browsable and git-clonable)"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["github", "gitlab", "bitbucket", "other"],
+          "description": "Hosting service identifier"
+        },
+        "id": {
+          "type": "string",
+          "description": "Stable identifier from hosting service"
+        },
+        "subfolder": {
+          "type": "string",
+          "description": "Subfolder path for monorepos"
+        }
+      }
+    },
+    "Version": {
+      "type": "object",
+      "required": ["version", "packages"],
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Semantic version (no ranges)",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+(-[a-zA-Z0-9.-]+)?(\\+[a-zA-Z0-9.-]+)?$"
+        },
+        "releaseDate": {
+          "type": "string",
+          "format": "date",
+          "description": "Release date in YYYY-MM-DD format"
+        },
+        "isLatest": {
+          "type": "boolean",
+          "description": "Whether this is the latest/recommended version"
+        },
+        "packages": {
+          "type": "array",
+          "description": "Available package distributions",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/definitions/Package"
+          }
+        }
+      }
+    },
+    "Package": {
+      "type": "object",
+      "required": ["registryType", "identifier", "transport"],
+      "properties": {
+        "registryType": {
+          "type": "string",
+          "enum": ["npm", "pypi", "oci", "nuget", "mcpb"],
+          "description": "Package registry type"
+        },
+        "identifier": {
+          "type": "string",
+          "description": "Package name or download URL"
+        },
+        "version": {
+          "type": "string",
+          "description": "Package version (if different from server version)"
+        },
+        "runtimeHint": {
+          "type": "string",
+          "enum": ["npx", "docker", "dnx", "python", "uvx", "binary"],
+          "description": "How to execute this package"
+        },
+        "transport": {
+          "$ref": "#/definitions/Transport"
+        },
+        "packageArguments": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/Argument" }
+            ]
+          },
+          "description": "Arguments to pass to the package"
+        },
+        "runtimeArguments": {
+          "type": "array",
+          "items": {
+            "oneOf": [
+              { "type": "string" },
+              { "$ref": "#/definitions/Argument" }
+            ]
+          },
+          "description": "Arguments to pass to the runtime"
+        },
+        "environmentVariables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/EnvironmentVariable"
+          },
+          "description": "Required or optional environment variables"
+        },
+        "fileSha256": {
+          "type": "string",
+          "description": "SHA256 hash for integrity verification (mcpb only)"
+        }
+      }
+    },
+    "Transport": {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["stdio", "streamable-http", "sse"],
+          "description": "Transport protocol type"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "description": "URL for http/sse transports"
+        }
+      }
+    },
+    "EnvironmentVariable": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Environment variable name"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this variable is for"
+        },
+        "required": {
+          "type": "boolean",
+          "default": true,
+          "description": "Whether this variable is required"
+        },
+        "default": {
+          "type": "string",
+          "description": "Default value if not provided"
+        },
+        "format": {
+          "type": "string",
+          "description": "Format hint for the value"
+        },
+        "isSecret": {
+          "type": "boolean",
+          "description": "Whether this is a secret/sensitive value"
+        }
+      }
+    },
+    "Argument": {
+      "type": "object",
+      "required": ["value"],
+      "properties": {
+        "value": {
+          "type": "string",
+          "description": "The argument value"
+        },
+        "type": {
+          "type": "string",
+          "enum": ["positional", "flag", "option"],
+          "description": "Type of argument"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the argument (for options/flags)"
+        },
+        "description": {
+          "type": "string",
+          "description": "Description of what this argument does"
+        },
+        "isRequired": {
+          "type": "boolean",
+          "description": "Whether this argument is required"
+        },
+        "isUserProvided": {
+          "type": "boolean",
+          "description": "Whether this argument should be provided by the user"
+        }
+      }
+    }
+  }
+}
