@@ -20,7 +20,12 @@ const ROOT = join(__dirname, '..');
 const SERVERS_DIR = join(ROOT, 'servers');
 const DIST_DIR = join(ROOT, 'dist');
 const API_DIR = join(DIST_DIR, 'api', 'v0.1');
+const API_ROOT = join(DIST_DIR, 'api');
 const WEB_DIR = join(ROOT, 'src', 'web');
+
+// Registry metadata
+const REGISTRY_VERSION = '0.1.0';
+const SCHEMA_VERSION = '2025-10-17';
 
 /**
  * Recursively find all JSON files in a directory
@@ -219,7 +224,114 @@ async function build() {
     console.log('📄 Copied schemas');
   }
 
+  // Generate discovery document (/api/index.json)
+  const discoveryDoc = {
+    version: REGISTRY_VERSION,
+    schemaVersion: SCHEMA_VERSION,
+    generated: new Date().toISOString(),
+    resources: [
+      {
+        '@id': 'v0.1/servers.json',
+        '@type': 'ServerList/0.1.0',
+        comment: 'List of all MCP servers with summaries'
+      },
+      {
+        '@id': 'v0.1/servers/{name}/versions.json',
+        '@type': 'ServerVersions/0.1.0',
+        comment: 'All versions for a specific server ({name} is URL-encoded)'
+      },
+      {
+        '@id': 'v0.1/servers/{name}/versions/{version}.json',
+        '@type': 'ServerVersion/0.1.0',
+        comment: 'Details for a specific server version'
+      },
+      {
+        '@id': 'v0.1/servers/{name}/versions/latest.json',
+        '@type': 'ServerVersion/0.1.0',
+        comment: 'Latest version for a specific server'
+      }
+    ]
+  };
+  await writeJson(join(API_ROOT, 'index.json'), discoveryDoc);
+  console.log('📄 Generated discovery document (api/index.json)');
+
+  // Generate simple HTML index (PEP 503-style)
+  await generateSimpleIndex(servers);
+  console.log('📄 Generated simple index (api/simple/)');
+
   console.log('\n✅ Build complete! Output in dist/');
+}
+
+/**
+ * Generate a PEP 503-style simple index for easy browsing
+ */
+async function generateSimpleIndex(servers) {
+  const simpleDir = join(API_ROOT, 'simple');
+  await ensureDir(simpleDir);
+
+  // Root index: list of all server names
+  const rootLinks = servers.map(s => {
+    const encodedName = encodeServerName(s.name);
+    return `    <a href="${encodedName}/">${s.name}</a>`;
+  }).join('\n');
+
+  const rootHtml = `<!DOCTYPE html>
+<html>
+<head><title>MCP Registry - Simple Index</title></head>
+<body>
+  <h1>MCP Registry</h1>
+${rootLinks}
+</body>
+</html>`;
+
+  await writeFile(join(simpleDir, 'index.html'), rootHtml);
+
+  // Also generate JSON variant (PEP 691-style)
+  const rootJson = {
+    meta: { 'api-version': '1.0' },
+    servers: servers.map(s => ({
+      name: s.name,
+      url: `${encodeServerName(s.name)}/`
+    }))
+  };
+  await writeJson(join(simpleDir, 'index.json'), rootJson);
+
+  // Per-server index: list of versions
+  for (const server of servers) {
+    const encodedName = encodeServerName(server.name);
+    const serverSimpleDir = join(simpleDir, encodedName);
+    await ensureDir(serverSimpleDir);
+
+    const versionLinks = server.versions.map(v => {
+      const label = v.isLatest ? `${v.version} (latest)` : v.version;
+      return `    <a href="../../v0.1/servers/${encodedName}/versions/${v.version}.json">${label}</a>`;
+    }).join('\n');
+
+    const serverHtml = `<!DOCTYPE html>
+<html>
+<head><title>${server.name} - MCP Registry</title></head>
+<body>
+  <h1>${server.name}</h1>
+  <p>${server.description}</p>
+${versionLinks}
+</body>
+</html>`;
+
+    await writeFile(join(serverSimpleDir, 'index.html'), serverHtml);
+
+    // JSON variant
+    const serverJson = {
+      meta: { 'api-version': '1.0' },
+      name: server.name,
+      description: server.description,
+      versions: server.versions.map(v => ({
+        version: v.version,
+        isLatest: v.isLatest || false,
+        url: `../../v0.1/servers/${encodedName}/versions/${v.version}.json`
+      }))
+    };
+    await writeJson(join(serverSimpleDir, 'index.json'), serverJson);
+  }
 }
 
 /**

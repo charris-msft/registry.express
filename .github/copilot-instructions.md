@@ -27,26 +27,28 @@ registry.express/
 
 ## CLI Commands
 
+> **Note:** Use `--` after `npm run cli` to pass arguments to the script.
+
 ```bash
 # List servers in local registry
-npm run cli list
+npm run cli -- list
 
 # Search official registry
-npm run cli search "azure"
-npm run cli search "com.microsoft/azure|io.github.github/github-mcp-server"
-npm run cli search "filesystem" --json    # Output server names only
-npm run cli search "mcp" --limit 5        # Limit results
+npm run cli -- search "azure"
+npm run cli -- search "com.microsoft/azure|io.github.github/github-mcp-server"
+npm run cli -- search "filesystem" --json    # Output server names only
+npm run cli -- search "mcp" --limit 5        # Limit results
 
 # Import from official registry
-npm run cli import "com.microsoft/azure"
-npm run cli import "com.microsoft/azure" --all-versions
-npm run cli import "com.microsoft/azure" --file servers/my-servers.json
+npm run cli -- import "com.microsoft/azure"
+npm run cli -- import "com.microsoft/azure" --all-versions
+npm run cli -- import "com.microsoft/azure" --file servers/my-servers.json
 
 # Search and import all results
-npm run cli search "com.microsoft/azure|io.github.github/github-mcp-server" --import-all
+npm run cli -- search "com.microsoft/azure|io.github.github/github-mcp-server" --import-all
 
 # Build the static API
-npm run cli build
+npm run cli -- build
 
 # Run tests
 npm test

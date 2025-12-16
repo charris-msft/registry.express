@@ -21,13 +21,13 @@ cd registry.express
 npm install
 
 # Search the official registry
-npm run cli search "azure"
+npm run cli -- search "azure"
 
 # Search multiple keywords
-npm run cli search "azure|microsoft|github"
+npm run cli -- search "azure|microsoft|github"
 
 # Import a server
-npm run cli import "com.microsoft/azure"
+npm run cli -- import "com.microsoft/azure"
 
 # Build the static API
 npm run build
@@ -64,22 +64,22 @@ Import from the official MCP Registry:
 
 ```bash
 # Search for servers
-npm run cli search "azure"
+npm run cli -- search "azure"
 
 # Search for specific servers by name
-npm run cli search "com.microsoft/azure|io.github.github/github-mcp-server"
+npm run cli -- search "com.microsoft/azure|io.github.github/github-mcp-server"
 
 # Import latest version
-npm run cli import "com.microsoft/azure"
+npm run cli -- import "com.microsoft/azure"
 
 # Import all versions
-npm run cli import "com.microsoft/azure" --all-versions
+npm run cli -- import "com.microsoft/azure" --all-versions
 
 # Import into a specific file (multi-server format)
-npm run cli import "com.microsoft/azure" --file servers/my-favorites.json
+npm run cli -- import "com.microsoft/azure" --file servers/my-favorites.json
 
 # Search and import all results
-npm run cli search "com.microsoft/azure|io.github.github/github-mcp-server" --import-all
+npm run cli -- search "com.microsoft/azure|io.github.github/github-mcp-server" --import-all
 ```
 
 ### Option 2: Single Server File
@@ -149,17 +149,19 @@ This is useful when:
 
 ## CLI Commands
 
+> **Note:** Use `--` after `npm run cli` to pass arguments to the script.
+
 ```bash
 # Search official registry
-npm run cli search <query>
-npm run cli search "azure|microsoft"      # Multiple keywords
-npm run cli search "azure" -- --json      # Output names only (for piping)
+npm run cli -- search <query>
+npm run cli -- search "azure|microsoft"      # Multiple keywords
+npm run cli -- search "azure" --json         # Output names only (for piping)
   -r, --registry <url>      Source registry URL
   -l, --limit <n>           Maximum results (default: 20)
   -j, --json                Output server names only (for piping)
 
 # Import a server
-npm run cli import <server-name>
+npm run cli -- import <server-name>
   -v, --version <version>   Specific version (default: latest)
   --all-versions            Import all available versions
   -r, --registry <url>      Source registry URL
@@ -167,11 +169,11 @@ npm run cli import <server-name>
   -o, --output <dir>        Output directory (default: ./servers)
 
 # List local servers
-npm run cli list
+npm run cli -- list
   -d, --dir <dir>           Servers directory (default: ./servers)
 
 # Build the registry
-npm run cli build
+npm run cli -- build
   -w, --watch               Watch for changes
 ```
 
@@ -181,10 +183,31 @@ The generated API is compatible with the official MCP Registry:
 
 | Endpoint | Description |
 |----------|-------------|
-| `GET /api/v0.1/servers` | List all servers |
-| `GET /api/v0.1/servers/{name}/versions` | List versions for a server |
-| `GET /api/v0.1/servers/{name}/versions/{version}` | Get specific version |
-| `GET /api/v0.1/servers/{name}/versions/latest` | Get latest version |
+| `GET /api/index.json` | **Discovery document** – lists available resources and API version |
+| `GET /api/v0.1/servers.json` | List all servers |
+| `GET /api/v0.1/servers/{name}/versions.json` | List versions for a server |
+| `GET /api/v0.1/servers/{name}/versions/{version}.json` | Get specific version |
+| `GET /api/v0.1/servers/{name}/versions/latest.json` | Get latest version |
+
+### Simple Index (PEP 503/691 style)
+
+A lightweight, cache-friendly index is also generated for easy browsing:
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /api/simple/` | HTML index of all server names |
+| `GET /api/simple/index.json` | JSON index of all server names |
+| `GET /api/simple/{name}/` | HTML page listing versions for a server |
+| `GET /api/simple/{name}/index.json` | JSON list of versions for a server |
+
+### Search
+
+Use the CLI to search the official MCP Registry:
+
+```bash
+npm run cli -- search "azure"
+npm run cli -- search "azure|microsoft"  # multiple keywords
+```
 
 ## Deployment
 

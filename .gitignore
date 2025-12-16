@@ -34,3 +34,7 @@ coverage/
 *.tmp
 *.temp
 .cache/
+
+# Private server definitions
+servers/com.microsoft/
+servers/io.github.github/
