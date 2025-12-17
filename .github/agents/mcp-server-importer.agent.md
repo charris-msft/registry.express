@@ -35,34 +35,28 @@ When the user provides a URL to MCP server documentation:
 
 ## Registry Server Format
 
-All servers must conform to this schema:
+All servers must conform to the **official MCP schema** (flat, single-version structure):
 
 ```json
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "namespace/server-name",
   "title": "Friendly Display Name",
-  "description": "Human-readable description",
+  "description": "Human-readable description (max 100 chars)",
+  "version": "1.0.0",
   "repository": {
     "url": "https://github.com/org/repo",
     "source": "github"
   },
   "websiteUrl": "https://optional-docs-url.com",
-  "versions": [
+  "packages": [
     {
-      "version": "1.0.0",
-      "releaseDate": "YYYY-MM-DD",
-      "isLatest": true,
-      "packages": [
-        {
-          "registryType": "npm|pypi|oci|nuget|mcpb",
-          "identifier": "package-name",
-          "runtimeHint": "npx|uvx|docker|python|binary",
-          "transport": { "type": "stdio|streamable-http|sse" },
-          "environmentVariables": [
-            { "name": "VAR_NAME", "description": "...", "required": true }
-          ]
-        }
+      "registryType": "npm|pypi|oci|nuget|mcpb",
+      "identifier": "package-name",
+      "runtimeHint": "npx|uvx|docker|python|binary",
+      "transport": { "type": "stdio|streamable-http|sse" },
+      "environmentVariables": [
+        { "name": "VAR_NAME", "description": "...", "isRequired": true }
       ]
     }
   ]
@@ -72,7 +66,9 @@ All servers must conform to this schema:
 ### Important Fields
 
 - **`name`** (required): The server identifier in reverse-DNS format with exactly one slash (e.g., `io.github.user/server-name`). This is used as the unique identifier and **must match the key used in VS Code's mcp.json** for gallery enrichment to work.
+- **`version`** (required): The server version string (e.g., "1.0.0"). Must be a specific version, not a range.
 - **`title`** (optional but recommended): A friendly display name shown in VS Code's MCP gallery (e.g., "My Awesome Server"). If not provided, VS Code will display the `name` field.
+- **`packages`** (recommended): Array of package distributions directly at the top level (NOT nested under `versions`).
 
 ## VS Code mcp.json Format Conversion
 
@@ -177,6 +173,12 @@ Ask the user where to save:
 - Validate required fields are present
 - If updating existing file, merge properly (don't overwrite existing servers)
 
+### Step 5: Commit and Push
+- **DO NOT run `npm run build`** - the GitHub Actions workflow handles this automatically
+- Commit the new/updated server file(s) to the repository
+- Push to `main` branch (or create a PR if working on a feature branch)
+- The build and deploy will happen automatically via GitHub Actions
+
 ## Server Naming Conventions
 
 Names must follow reverse-DNS format with exactly one slash:
@@ -231,11 +233,10 @@ Response:
 
 ## Quality Checks Before Saving
 
-✅ Name matches pattern `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*/[a-z][a-z0-9-]*$`
+✅ Name matches pattern `^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$`
 ✅ Title is provided for friendly display in gallery
 ✅ Description is between 1-100 characters (keep it concise!)
-✅ At least one version with `isLatest: true`
-✅ Each version has at least one package
+✅ Version is a specific version string (e.g., "1.0.0"), not a range
 ✅ Each package has registryType, identifier, and transport
 ✅ $schema is set to official MCP schema URL
 ✅ File is valid JSON with 2-space indentation
@@ -252,6 +253,8 @@ Response:
 - **DO** ask clarifying questions when information is ambiguous
 - **DO** validate all inputs before creating files
 - **DO** show the user what will be created before writing
+- **DO** commit and push changes to GitHub after creating files
+- **DON'T** run `npm run build` - GitHub Actions handles this automatically on push
 - **DON'T** guess at critical values like version numbers
 - **DON'T** create files without user confirmation
 - **DON'T** overwrite existing servers without asking
