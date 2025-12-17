@@ -113,6 +113,7 @@ async function loadServerFileFromGitHub(owner, repo, filePath, ref) {
         name: data.name,
         title: data.title,
         description: data.description,
+        icons: data.icons,
         repository: data.repository,
         websiteUrl: data.websiteUrl,
         versions: [{

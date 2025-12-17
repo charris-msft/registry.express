@@ -64,40 +64,65 @@ function getMimeType(filePath) {
 }
 
 function resolveFilePath(urlPath, distDir = lastSuccessfulDistDir) {
-  // Keep the URL-encoded path segments intact when mapping to filesystem
+  // Parse the URL but keep path segments encoded for filesystem lookup
   const pathOnly = urlPath.split('?')[0];
   
-  // Try exact path first
+  // The URL comes in decoded from Node's http parser, but our filesystem
+  // uses URL-encoded folder names (e.g., com.microsoft%2Fazure)
+  // We need to re-encode any slashes that are part of server names
+  // 
+  // Strategy: Try the decoded path first, then try with re-encoded slashes
+  // in the server name portion of the path
+  
+  // Try exact decoded path first
   let filePath = path.join(distDir, pathOnly);
   
   if (fs.existsSync(filePath)) {
     // If it's a directory, try index files
     if (fs.statSync(filePath).isDirectory()) {
-      // Try index.html first (for web UI)
       const indexHtml = path.join(filePath, 'index.html');
-      if (fs.existsSync(indexHtml)) {
-        return indexHtml;
-      }
-      // Then try index.json (for API directories)
+      if (fs.existsSync(indexHtml)) return indexHtml;
       const indexJson = path.join(filePath, 'index.json');
-      if (fs.existsSync(indexJson)) {
-        return indexJson;
-      }
-      return null; // Directory without index file
+      if (fs.existsSync(indexJson)) return indexJson;
+      return null;
     }
     return filePath;
   }
   
-  // Try with index.json appended
-  const withIndex = path.join(distDir, pathOnly, 'index.json');
-  if (fs.existsSync(withIndex)) {
-    return withIndex;
-  }
-  
   // Try with .json extension
-  const withJson = filePath + '.json';
-  if (fs.existsSync(withJson)) {
-    return withJson;
+  let withJson = filePath + '.json';
+  if (fs.existsSync(withJson)) return withJson;
+  
+  // Try with index.json appended
+  let withIndex = path.join(filePath, 'index.json');
+  if (fs.existsSync(withIndex)) return withIndex;
+  
+  // For API paths like /v0.1/servers/com.microsoft/azure/versions/latest
+  // We need to re-encode the server name part (slashes become %2F)
+  const apiMatch = pathOnly.match(/^(\/v0(?:\.1)?\/servers\/)([^/]+\/[^/]+)(\/.*)?$/);
+  if (apiMatch) {
+    const [, prefix, serverName, suffix = ''] = apiMatch;
+    const encodedName = encodeURIComponent(serverName);
+    const encodedPath = prefix + encodedName + suffix;
+    
+    filePath = path.join(distDir, encodedPath);
+    
+    if (fs.existsSync(filePath)) {
+      if (fs.statSync(filePath).isDirectory()) {
+        const indexHtml = path.join(filePath, 'index.html');
+        if (fs.existsSync(indexHtml)) return indexHtml;
+        const indexJson = path.join(filePath, 'index.json');
+        if (fs.existsSync(indexJson)) return indexJson;
+        return null;
+      }
+      return filePath;
+    }
+    
+    withJson = filePath + '.json';
+    if (fs.existsSync(withJson)) return withJson;
+    
+    withIndex = path.join(filePath, 'index.json');
+    if (fs.existsSync(withIndex)) return withIndex;
   }
   
   return null;
