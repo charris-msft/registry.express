@@ -67,13 +67,23 @@ function resolveFilePath(urlPath, distDir = lastSuccessfulDistDir) {
   // Keep the URL-encoded path segments intact when mapping to filesystem
   const pathOnly = urlPath.split('?')[0];
   
-  // Try exact path first (with index.json for directories)
+  // Try exact path first
   let filePath = path.join(distDir, pathOnly);
   
   if (fs.existsSync(filePath)) {
-    const indexPath = path.join(filePath, 'index.json');
-    if (fs.existsSync(indexPath)) {
-      return indexPath;
+    // If it's a directory, try index files
+    if (fs.statSync(filePath).isDirectory()) {
+      // Try index.html first (for web UI)
+      const indexHtml = path.join(filePath, 'index.html');
+      if (fs.existsSync(indexHtml)) {
+        return indexHtml;
+      }
+      // Then try index.json (for API directories)
+      const indexJson = path.join(filePath, 'index.json');
+      if (fs.existsSync(indexJson)) {
+        return indexJson;
+      }
+      return null; // Directory without index file
     }
     return filePath;
   }
