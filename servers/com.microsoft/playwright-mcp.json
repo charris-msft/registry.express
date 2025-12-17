@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "com.microsoft/playwright-mcp",
+  "title": "Playwright MCP",
+  "description": "Browser automation using Playwright's accessibility tree for LLM-friendly web interaction",
+  "version": "0.0.52",
+  "repository": {
+    "url": "https://github.com/microsoft/playwright-mcp",
+    "source": "github"
+  },
+  "websiteUrl": "https://www.npmjs.com/package/@playwright/mcp",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@playwright/mcp",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+} 
