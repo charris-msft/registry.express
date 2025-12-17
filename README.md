@@ -306,6 +306,69 @@ The server runs at `https://localhost:3443` by default. The certificate files (`
 
 > **Important**: VS Code's MCP Gallery requires HTTPS. When deploying to production, ensure your host provides SSL certificates (GitHub Pages, Azure Static Web Apps, and most cloud hosts do this automatically).
 
+### Remote Repository Mode
+
+Deploy a single server instance that fetches server definitions from any git repository. Perfect for multi-tenant deployments where different teams manage their own registries.
+
+```bash
+# Start server pointing to a remote repository
+MCP_REGISTRY_REPO=https://github.com/your-org/mcp-servers npm start
+
+# With all options
+MCP_REGISTRY_REPO=https://github.com/your-org/mcp-servers \
+MCP_REGISTRY_BRANCH=main \
+MCP_POLL_INTERVAL=300 \
+MCP_REGISTRY_PATH=servers \
+MCP_WEBHOOK_SECRET=your-secret \
+npm start
+```
+
+#### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `MCP_REGISTRY_REPO` | Git repo URL (HTTPS or SSH) | (none - uses local `servers/`) |
+| `MCP_REGISTRY_BRANCH` | Branch to track | `main` |
+| `MCP_POLL_INTERVAL` | Seconds between update checks | `300` |
+| `MCP_REGISTRY_PATH` | Path to servers folder within repo | `servers` |
+| `MCP_WEBHOOK_SECRET` | Secret for GitHub/GitLab webhooks | (none) |
+| `MCP_PORT` | Server port | `3443` |
+
+#### Private Repositories
+
+For private repos, configure git credentials:
+
+```bash
+# Using HTTPS with token (recommended for CI/CD)
+MCP_REGISTRY_REPO=https://<token>@github.com/your-org/private-repo npm start
+
+# Using SSH (requires SSH key configured)
+MCP_REGISTRY_REPO=git@github.com:your-org/private-repo.git npm start
+```
+
+#### Webhook Integration
+
+Configure instant updates instead of polling:
+
+1. Set `MCP_WEBHOOK_SECRET` environment variable
+2. Add a webhook in your repository settings:
+   - **URL**: `https://your-registry.com/webhook`
+   - **Content type**: `application/json`
+   - **Secret**: Same as `MCP_WEBHOOK_SECRET`
+   - **Events**: Push events
+
+#### Server Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/_status` | GET | Server status, current commit, mode |
+| `/_refresh` | POST | Force rebuild from source |
+| `/webhook` | POST | GitHub/GitLab webhook receiver |
+
+#### Caching
+
+The server caches builds based on git commit hashes. If the remote repository hasn't changed, the server will serve the cached build without re-reading server files. This improves startup time and reduces git operations.
+
 ### GitHub Pages
 
 1. Push to GitHub
@@ -326,10 +389,29 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-RUN npm run build
 
-FROM nginx:alpine
-COPY --from=builder /app/dist /usr/share/nginx/html
+# For remote repo mode, don't build at image creation
+# The server will clone and build at runtime
+
+FROM node:20-alpine
+RUN apk add --no-cache git openssh-client
+WORKDIR /app
+COPY --from=builder /app .
+
+# For private SSH repos, mount your SSH keys
+# VOLUME /root/.ssh
+
+EXPOSE 3443
+CMD ["node", "scripts/server.cjs"]
+```
+
+Run with remote repository:
+
+```bash
+docker run -p 3443:3443 \
+  -e MCP_REGISTRY_REPO=https://github.com/your-org/mcp-servers \
+  -e MCP_WEBHOOK_SECRET=your-secret \
+  your-registry-image
 ```
 
 ### Manual / Other Hosts

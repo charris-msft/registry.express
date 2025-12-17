@@ -17,13 +17,18 @@ import { existsSync } from 'fs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const SERVERS_DIR = join(ROOT, 'servers');
-const DIST_DIR = join(ROOT, 'dist');
+
+// Allow environment variable overrides for remote repo support
+const SERVERS_DIR = process.env.MCP_SERVERS_DIR || join(ROOT, 'servers');
+const DIST_DIR = process.env.MCP_DIST_DIR || join(ROOT, 'dist');
 const API_DIR = join(DIST_DIR, 'api', 'v0.1');
 const API_V0_DIR = join(DIST_DIR, 'v0'); // VS Code compatible API path (v0)
 const API_V01_DIR = join(DIST_DIR, 'v0.1'); // VS Code compatible API path (v0.1 - tried first)
 const API_ROOT = join(DIST_DIR, 'api');
 const WEB_DIR = join(ROOT, 'src', 'web');
+
+// Export paths for use by other modules
+export { SERVERS_DIR, DIST_DIR, ROOT };
 
 // Registry metadata
 const REGISTRY_VERSION = '0.1.0';
@@ -175,18 +180,32 @@ function encodeServerName(name) {
 
 /**
  * Main build function
+ * @param {Object} options - Build options
+ * @param {string} options.serversDir - Override servers directory
+ * @param {string} options.distDir - Override dist directory
+ * @returns {Promise<{serverCount: number, distDir: string}>}
  */
-async function build() {
-  console.log('🔨 Building MCP Registry...\n');
+export async function build(options = {}) {
+  // Allow runtime overrides (for programmatic use)
+  const serversDir = options.serversDir || SERVERS_DIR;
+  const distDir = options.distDir || DIST_DIR;
+  const apiDir = join(distDir, 'api', 'v0.1');
+  const apiV0Dir = join(distDir, 'v0');
+  const apiV01Dir = join(distDir, 'v0.1');
+  const apiRoot = join(distDir, 'api');
+  
+  console.log('🔨 Building MCP Registry...');
+  console.log(`   📂 Source: ${serversDir}`);
+  console.log(`   📦 Output: ${distDir}\n`);
 
   // Clean dist directory
-  if (existsSync(DIST_DIR)) {
-    await rm(DIST_DIR, { recursive: true });
+  if (existsSync(distDir)) {
+    await rm(distDir, { recursive: true, force: true });
   }
-  await ensureDir(DIST_DIR);
+  await ensureDir(distDir);
 
   // Find all server files
-  const serverFiles = await findJsonFiles(SERVERS_DIR);
+  const serverFiles = await findJsonFiles(serversDir);
   console.log(`📦 Found ${serverFiles.length} server file(s)`);
 
   // Load all servers
@@ -212,7 +231,7 @@ async function build() {
     total: servers.length,
     generated: new Date().toISOString()
   };
-  await writeJson(join(API_DIR, 'servers.json'), serverList);
+  await writeJson(join(apiDir, 'servers.json'), serverList);
   console.log(`\n📄 Generated servers.json (${servers.length} servers)`);
 
   // Generate VS Code compatible /v0/servers endpoint
@@ -231,16 +250,16 @@ async function build() {
   };
   // Write to /v0/servers/index.json and /v0.1/servers/index.json
   // VS Code tries v0.1 first, then falls back to v0
-  await writeJson(join(API_V0_DIR, 'servers', 'index.json'), vsCodeResponse);
-  await writeJson(join(API_V01_DIR, 'servers', 'index.json'), vsCodeResponse);
+  await writeJson(join(apiV0Dir, 'servers', 'index.json'), vsCodeResponse);
+  await writeJson(join(apiV01Dir, 'servers', 'index.json'), vsCodeResponse);
   console.log('📄 Generated VS Code compatible /v0/servers and /v0.1/servers endpoints');
 
   // Generate per-server and per-version files
   for (const server of servers) {
     const encodedName = encodeServerName(server.name);
-    const serverDir = join(API_DIR, 'servers', encodedName);
-    const v0ServerDir = join(API_V0_DIR, 'servers', encodedName);
-    const v01ServerDir = join(API_V01_DIR, 'servers', encodedName);
+    const serverDir = join(apiDir, 'servers', encodedName);
+    const v0ServerDir = join(apiV0Dir, 'servers', encodedName);
+    const v01ServerDir = join(apiV01Dir, 'servers', encodedName);
 
     // /servers/{name}/versions.json
     await writeJson(
@@ -299,21 +318,21 @@ async function build() {
 
   // Copy web assets
   if (existsSync(WEB_DIR)) {
-    await cp(WEB_DIR, DIST_DIR, { recursive: true });
+    await cp(WEB_DIR, distDir, { recursive: true });
     console.log('📄 Copied web assets');
   }
 
   // Copy serve.json for static server configuration
   const serveJsonPath = join(ROOT, 'serve.json');
   if (existsSync(serveJsonPath)) {
-    await cp(serveJsonPath, join(DIST_DIR, 'serve.json'));
+    await cp(serveJsonPath, join(distDir, 'serve.json'));
     console.log('📄 Copied serve.json');
   }
 
   // Copy schemas
   const schemasDir = join(ROOT, 'schemas');
   if (existsSync(schemasDir)) {
-    await cp(schemasDir, join(DIST_DIR, 'schemas'), { recursive: true });
+    await cp(schemasDir, join(distDir, 'schemas'), { recursive: true });
     console.log('📄 Copied schemas');
   }
 
@@ -345,21 +364,26 @@ async function build() {
       }
     ]
   };
-  await writeJson(join(API_ROOT, 'index.json'), discoveryDoc);
+  await writeJson(join(apiRoot, 'index.json'), discoveryDoc);
   console.log('📄 Generated discovery document (api/index.json)');
 
   // Generate simple HTML index (PEP 503-style)
-  await generateSimpleIndex(servers);
+  await generateSimpleIndex(servers, apiRoot);
   console.log('📄 Generated simple index (api/simple/)');
 
-  console.log('\n✅ Build complete! Output in dist/');
+  console.log(`\n✅ Build complete! Output in ${distDir}`);
+  
+  // Return build info for programmatic use
+  return { serverCount: servers.length, distDir };
 }
 
 /**
  * Generate a PEP 503-style simple index for easy browsing
+ * @param {Array} servers - Array of server objects
+ * @param {string} apiRoot - Path to the API root directory
  */
-async function generateSimpleIndex(servers) {
-  const simpleDir = join(API_ROOT, 'simple');
+async function generateSimpleIndex(servers, apiRoot = API_ROOT) {
+  const simpleDir = join(apiRoot, 'simple');
   await ensureDir(simpleDir);
 
   // Root index: list of all server names
