@@ -4,13 +4,14 @@
  * Build script that aggregates individual server JSON files into
  * the API-compatible format for static hosting.
  *
- * Input:  servers/**\/*.json (one file per MCP server) OR GitHub repository
+ * Input:  GitHub repository (default) OR local servers/**\/*.json
  * Output: dist/api/v0.1/servers.json (aggregated list)
  *         dist/api/v0.1/servers/{name}/versions.json (per-server)
  *         dist/api/v0.1/servers/{name}/versions/{version}.json (per-version)
  * 
- * Use --github flag to fetch servers from GitHub instead of local filesystem.
- * This ensures the registry only serves what's committed to the main branch.
+ * By default, fetches servers from GitHub main branch.
+ * Use --local flag to build from local filesystem instead.
+ * Use --watch flag for local development with auto-rebuild.
  */
 
 import { readdir, readFile, writeFile, mkdir, cp, rm } from 'fs/promises';
@@ -59,7 +60,10 @@ async function findJsonFiles(dir, files = []) {
 
 /**
  * Load and validate a server JSON file
- * Supports both single server format and multi-server format (servers array)
+ * Supports:
+ * - Multi-server format (has "servers" array)
+ * - Flat official MCP schema (top-level version + packages)
+ * - Internal versioned format (versions array with packages)
  */
 async function loadServerFile(filePath) {
   const content = await readFile(filePath, 'utf-8');
@@ -68,20 +72,50 @@ async function loadServerFile(filePath) {
   // Check if it's a multi-server file (has "servers" array)
   if (data.servers && Array.isArray(data.servers)) {
     // Validate each server in the array
+    const result = [];
     for (const server of data.servers) {
-      if (!server.name || !server.description || !server.versions) {
-        throw new Error(`Invalid server in ${filePath}: missing required fields (name, description, or versions)`);
-      }
+      result.push(normalizeServer(server, filePath));
     }
-    return data.servers;
+    return result;
   }
 
   // Single server format
-  if (!data.name || !data.description || !data.versions) {
-    throw new Error(`Invalid server file ${filePath}: missing required fields`);
+  return [normalizeServer(data, filePath)];
+}
+
+/**
+ * Normalize server to internal format (with versions array)
+ * Supports both flat schema (version + packages) and versioned schema (versions array)
+ */
+function normalizeServer(data, filePath) {
+  if (!data.name || !data.description) {
+    throw new Error(`Invalid server in ${filePath}: missing required fields (name or description)`);
   }
 
-  return [data]; // Return as array for consistent handling
+  // Flat official MCP schema (top-level version + packages)
+  if (data.version && data.packages && !data.versions) {
+    return {
+      name: data.name,
+      title: data.title,
+      description: data.description,
+      repository: data.repository,
+      websiteUrl: data.websiteUrl,
+      icons: data.icons,
+      versions: [{
+        version: data.version,
+        isLatest: true,
+        packages: data.packages,
+        remotes: data.remotes
+      }]
+    };
+  }
+
+  // Internal versioned format
+  if (data.versions && Array.isArray(data.versions)) {
+    return data;
+  }
+
+  throw new Error(`Invalid server in ${filePath}: missing version+packages or versions array`);
 }
 
 /**
@@ -500,16 +534,14 @@ async function watch() {
 
 // Run
 const isWatch = process.argv.includes('--watch');
-const isGitHub = process.argv.includes('--github');
+const isLocal = process.argv.includes('--local');
 
 if (isWatch) {
-  if (isGitHub) {
-    console.error('❌ Watch mode is not supported with --github flag');
-    process.exit(1);
-  }
+  // Watch mode always uses local filesystem
   watch();
 } else {
-  build({ useGitHub: isGitHub }).catch(err => {
+  // Default: use GitHub. Use --local flag to build from local filesystem
+  build({ useGitHub: !isLocal }).catch(err => {
     console.error('Build failed:', err);
     process.exit(1);
   });
