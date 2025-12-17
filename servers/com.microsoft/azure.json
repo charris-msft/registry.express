@@ -6,9 +6,9 @@
   "version": "2.0.0-beta.6",
   "icons": [
     {
-      "src": "https://raw.githubusercontent.com/microsoft/fluentui-system-icons/main/assets/Cloud/SVG/ic_fluent_cloud_24_filled.svg",
-      "mimeType": "image/svg+xml",
-      "sizes": ["any"]
+      "src": "https://azure.microsoft.com/svghandler/azure/?width=48&height=48",
+      "mimeType": "image/png",
+      "sizes": ["48x48"]
     }
   ],
   "repository": {
