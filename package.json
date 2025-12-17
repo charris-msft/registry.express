@@ -10,6 +10,7 @@
   "scripts": {
     "build": "node scripts/build.js",
     "serve": "npx serve dist",
+    "serve:https": "node scripts/server.cjs",
     "cli": "node src/cli/index.js",
     "import": "node src/cli/index.js import",
     "dev": "node scripts/build.js --watch",

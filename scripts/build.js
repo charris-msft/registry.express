@@ -20,12 +20,15 @@ const ROOT = join(__dirname, '..');
 const SERVERS_DIR = join(ROOT, 'servers');
 const DIST_DIR = join(ROOT, 'dist');
 const API_DIR = join(DIST_DIR, 'api', 'v0.1');
+const API_V0_DIR = join(DIST_DIR, 'v0'); // VS Code compatible API path (v0)
+const API_V01_DIR = join(DIST_DIR, 'v0.1'); // VS Code compatible API path (v0.1 - tried first)
 const API_ROOT = join(DIST_DIR, 'api');
 const WEB_DIR = join(ROOT, 'src', 'web');
 
 // Registry metadata
 const REGISTRY_VERSION = '0.1.0';
 const SCHEMA_VERSION = '2025-10-17';
+const OFFICIAL_SCHEMA = 'https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json';
 
 /**
  * Recursively find all JSON files in a directory
@@ -119,6 +122,35 @@ function toApiVersionDetail(server, version) {
 }
 
 /**
+ * Transform to VS Code / Official MCP Registry compatible format
+ * This wraps each server in {server: {...}, _meta: {...}} structure
+ */
+function toVSCodeServerFormat(server, version) {
+  const now = new Date().toISOString();
+  return {
+    server: {
+      $schema: OFFICIAL_SCHEMA,
+      name: server.name,
+      title: server.title,        // VS Code gallery looks for 'title' first
+      description: server.description,
+      repository: server.repository,
+      version: version.version,
+      packages: version.packages,
+      remotes: version.remotes,
+      websiteUrl: server.websiteUrl
+    },
+    _meta: {
+      'io.modelcontextprotocol.registry/official': {
+        status: 'active',
+        publishedAt: version.releaseDate ? new Date(version.releaseDate).toISOString() : now,
+        updatedAt: now,
+        isLatest: version.isLatest || false
+      }
+    }
+  };
+}
+
+/**
  * Ensure directory exists
  */
 async function ensureDir(dir) {
@@ -183,10 +215,32 @@ async function build() {
   await writeJson(join(API_DIR, 'servers.json'), serverList);
   console.log(`\n📄 Generated servers.json (${servers.length} servers)`);
 
+  // Generate VS Code compatible /v0/servers endpoint
+  // This matches the official MCP Registry API format
+  // For static hosting, we use index.json files that the server can serve as directory defaults
+  const vsCodeServerList = [];
+  for (const server of servers) {
+    const latestVersion = server.versions.find(v => v.isLatest) || server.versions[0];
+    vsCodeServerList.push(toVSCodeServerFormat(server, latestVersion));
+  }
+  const vsCodeResponse = {
+    servers: vsCodeServerList,
+    metadata: {
+      count: servers.length
+    }
+  };
+  // Write to /v0/servers/index.json and /v0.1/servers/index.json
+  // VS Code tries v0.1 first, then falls back to v0
+  await writeJson(join(API_V0_DIR, 'servers', 'index.json'), vsCodeResponse);
+  await writeJson(join(API_V01_DIR, 'servers', 'index.json'), vsCodeResponse);
+  console.log('📄 Generated VS Code compatible /v0/servers and /v0.1/servers endpoints');
+
   // Generate per-server and per-version files
   for (const server of servers) {
     const encodedName = encodeServerName(server.name);
     const serverDir = join(API_DIR, 'servers', encodedName);
+    const v0ServerDir = join(API_V0_DIR, 'servers', encodedName);
+    const v01ServerDir = join(API_V01_DIR, 'servers', encodedName);
 
     // /servers/{name}/versions.json
     await writeJson(
@@ -200,6 +254,17 @@ async function build() {
         join(serverDir, 'versions', `${version.version}.json`),
         toApiVersionDetail(server, version)
       );
+
+      // Also generate VS Code compatible /v0/servers/{name}/versions/{version}
+      await writeJson(
+        join(v0ServerDir, 'versions', version.version, 'index.json'),
+        toVSCodeServerFormat(server, version)
+      );
+      // And /v0.1/servers/{name}/versions/{version}
+      await writeJson(
+        join(v01ServerDir, 'versions', version.version, 'index.json'),
+        toVSCodeServerFormat(server, version)
+      );
     }
 
     // /servers/{name}/versions/latest.json (symlink to latest version)
@@ -208,6 +273,27 @@ async function build() {
       join(serverDir, 'versions', 'latest.json'),
       toApiVersionDetail(server, latestVersion)
     );
+
+    // Also generate VS Code compatible /v0/servers/{name}/versions/latest
+    await writeJson(
+      join(v0ServerDir, 'versions', 'latest', 'index.json'),
+      toVSCodeServerFormat(server, latestVersion)
+    );
+    // And /v0.1/servers/{name}/versions/latest
+    await writeJson(
+      join(v01ServerDir, 'versions', 'latest', 'index.json'),
+      toVSCodeServerFormat(server, latestVersion)
+    );
+
+    // Generate /v0/servers/{name}/versions (list all versions for this server)
+    const v0VersionsList = {
+      servers: server.versions.map(v => toVSCodeServerFormat(server, v)),
+      metadata: {
+        count: server.versions.length
+      }
+    };
+    await writeJson(join(v0ServerDir, 'versions', 'index.json'), v0VersionsList);
+    await writeJson(join(v01ServerDir, 'versions', 'index.json'), v0VersionsList);
   }
   console.log('📄 Generated per-server version files');
 
@@ -215,6 +301,13 @@ async function build() {
   if (existsSync(WEB_DIR)) {
     await cp(WEB_DIR, DIST_DIR, { recursive: true });
     console.log('📄 Copied web assets');
+  }
+
+  // Copy serve.json for static server configuration
+  const serveJsonPath = join(ROOT, 'serve.json');
+  if (existsSync(serveJsonPath)) {
+    await cp(serveJsonPath, join(DIST_DIR, 'serve.json'));
+    console.log('📄 Copied serve.json');
   }
 
   // Copy schemas

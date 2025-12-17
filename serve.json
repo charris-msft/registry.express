@@ -1,0 +1,34 @@
+{
+  "rewrites": [
+    { "source": "/v0/servers", "destination": "/v0/servers/index.json" },
+    { "source": "/v0/servers/:name/versions", "destination": "/v0/servers/:name/versions/index.json" },
+    { "source": "/v0/servers/:name/versions/latest", "destination": "/v0/servers/:name/versions/latest/index.json" },
+    { "source": "/v0/servers/:name/versions/:version", "destination": "/v0/servers/:name/versions/:version/index.json" },
+    { "source": "/v0.1/servers", "destination": "/v0.1/servers/index.json" },
+    { "source": "/v0.1/servers/:name/versions", "destination": "/v0.1/servers/:name/versions/index.json" },
+    { "source": "/v0.1/servers/:name/versions/latest", "destination": "/v0.1/servers/:name/versions/latest/index.json" },
+    { "source": "/v0.1/servers/:name/versions/:version", "destination": "/v0.1/servers/:name/versions/:version/index.json" }
+  ],
+  "headers": [
+    {
+      "source": "/v0/**",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/v0.1/**",
+      "headers": [
+        { "key": "Content-Type", "value": "application/json" },
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    },
+    {
+      "source": "/api/**",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" }
+      ]
+    }
+  ]
+}

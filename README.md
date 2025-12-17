@@ -1,18 +1,43 @@
 # MCP Registry Express
 
-A simplified [Model Context Protocol](https://modelcontextprotocol.io) (MCP) Registry for private and self-hosted scenarios.
+A simplified [Model Context Protocol](https://modelcontextprotocol.io) (MCP) Registry for private and self-hosted scenarios. Works with VS Code's MCP Gallery feature.
 
 ## Features
 
+- **VS Code Integration** - Use as a custom MCP Gallery service for VS Code
 - **Flexible file organization** - Single server per file, multiple servers per file, or any folder structure
 - **No database required** - Everything is file-based
-- **API compatible** - Implements the official MCP Registry API (v0)
+- **API compatible** - Implements the official MCP Registry API (v0/v0.1)
 - **Static hosting** - Deploy to GitHub Pages, Azure Static Web Apps, or any static host
 - **Auto-rebuild** - GitHub Actions automatically rebuilds when servers are added
 - **CLI tool** - Import servers from the official registry with a single command
+- **AI Agent** - Use the MCP Server Importer agent to add servers from mcp.json or URLs
 - **Web UI** - Browse and search your registry
 
 ## Quick Start
+
+### Prerequisites for Local Testing
+
+VS Code requires HTTPS for custom MCP Gallery services. Install [mkcert](https://github.com/FiloSottile/mkcert) to create local SSL certificates:
+
+```bash
+# Install mkcert (Windows with Chocolatey)
+choco install mkcert
+
+# Or with Scoop
+scoop install mkcert
+
+# Or on macOS
+brew install mkcert
+
+# Install the local CA and create certificates
+mkcert -install
+mkcert localhost
+```
+
+This creates `localhost.pem` and `localhost-key.pem` in your current directory.
+
+### Installation
 
 ```bash
 # Clone and install
@@ -20,11 +45,11 @@ git clone https://github.com/your-org/registry.express.git
 cd registry.express
 npm install
 
+# Create SSL certificates (required for VS Code)
+mkcert localhost
+
 # Search the official registry
 npm run cli -- search "azure"
-
-# Search multiple keywords
-npm run cli -- search "azure|microsoft|github"
 
 # Import a server
 npm run cli -- import "com.microsoft/azure"
@@ -32,8 +57,35 @@ npm run cli -- import "com.microsoft/azure"
 # Build the static API
 npm run build
 
-# Serve locally
-npm run serve
+# Start the HTTPS server
+npm run serve:https
+# Or: node scripts/server.cjs
+```
+
+### Configure VS Code
+
+Add these settings to use your private registry:
+
+```json
+{
+  "chat.mcp.gallery.enabled": true,
+  "chat.mcp.gallery.serviceUrl": "https://localhost:3443"
+}
+```
+
+Then in your `mcp.json`, add the `gallery` property to servers you want to enrich:
+
+```json
+{
+  "servers": {
+    "com.microsoft/azure": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@azure/mcp@latest", "server", "start"],
+      "gallery": "https://localhost:3443"
+    }
+  }
+}
 ```
 
 ## Project Structure
@@ -58,7 +110,27 @@ registry.express/
 
 ## Adding Servers
 
-### Option 1: CLI Import
+### Option 1: AI Agent (Recommended)
+
+Use the **MCP Server Importer** agent in VS Code to add servers interactively:
+
+1. Open VS Code with this repository
+2. Open Copilot Chat and type `@MCP Server Importer`
+3. Choose your import method:
+   - **"Import from my mcp.json"** - Select servers from your VS Code MCP configuration
+   - **"Import from URL"** - Provide a GitHub repo or documentation URL
+   - **"Add from JSON"** - Paste raw JSON configuration
+
+The agent will:
+- Extract package information (npm, pypi, etc.)
+- Generate a proper `name` in reverse-DNS format
+- Ask for a friendly `title` for display
+- Create the registry file with all required fields
+- Tell you how to update your mcp.json for gallery enrichment
+
+### Option 2: CLI Import
+
+### Option 2: CLI Import
 
 Import from the official MCP Registry:
 
@@ -82,7 +154,7 @@ npm run cli -- import "com.microsoft/azure" --file servers/my-favorites.json
 npm run cli -- search "com.microsoft/azure|io.github.github/github-mcp-server" --import-all
 ```
 
-### Option 2: Single Server File
+### Option 3: Single Server File
 
 Create a JSON file anywhere in `servers/`:
 
@@ -90,6 +162,7 @@ Create a JSON file anywhere in `servers/`:
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "io.github.user/my-server",
+  "title": "My Server",
   "description": "My awesome MCP server",
   "repository": {
     "url": "https://github.com/user/my-server",
@@ -113,7 +186,9 @@ Create a JSON file anywhere in `servers/`:
 }
 ```
 
-### Option 3: Multi-Server File
+> **Note**: The `name` field is the unique identifier and should be used as the key in your mcp.json for gallery enrichment. The `title` field provides a friendly display name in VS Code's MCP gallery view.
+
+### Option 4: Multi-Server File
 
 Keep multiple servers in one file for convenience:
 
@@ -140,7 +215,7 @@ This is useful when:
 - You want to group related servers together
 - You want the same server with different version/config combinations
 
-### Option 4: Web UI
+### Option 5: Web UI
 
 1. Open the Web UI
 2. Go to "Import Server" tab
@@ -209,7 +284,27 @@ npm run cli -- search "azure"
 npm run cli -- search "azure|microsoft"  # multiple keywords
 ```
 
+## Local Development
+
+VS Code requires HTTPS for custom MCP Gallery services. For local development, use the custom HTTPS server:
+
+```bash
+# Generate SSL certificates with mkcert (one-time setup)
+mkcert -install
+mkcert localhost
+
+# Build and serve with HTTPS
+npm run build
+npm run serve:https
+```
+
+The server runs at `https://localhost:3443` by default. The certificate files (`localhost.pem` and `localhost-key.pem`) should be in the project root.
+
+> **Note**: The standard `npm run serve` (HTTP) works for browsing the registry, but VS Code will only accept HTTPS URLs for the gallery service.
+
 ## Deployment
+
+> **Important**: VS Code's MCP Gallery requires HTTPS. When deploying to production, ensure your host provides SSL certificates (GitHub Pages, Azure Static Web Apps, and most cloud hosts do this automatically).
 
 ### GitHub Pages
 
