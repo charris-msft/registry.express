@@ -4,16 +4,20 @@
  * Build script that aggregates individual server JSON files into
  * the API-compatible format for static hosting.
  *
- * Input:  servers/**\/*.json (one file per MCP server)
+ * Input:  servers/**\/*.json (one file per MCP server) OR GitHub repository
  * Output: dist/api/v0.1/servers.json (aggregated list)
  *         dist/api/v0.1/servers/{name}/versions.json (per-server)
  *         dist/api/v0.1/servers/{name}/versions/{version}.json (per-version)
+ * 
+ * Use --github flag to fetch servers from GitHub instead of local filesystem.
+ * This ensures the registry only serves what's committed to the main branch.
  */
 
 import { readdir, readFile, writeFile, mkdir, cp, rm } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { fetchServersFromGitHub } from './github-source.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -181,12 +185,17 @@ function encodeServerName(name) {
 /**
  * Main build function
  * @param {Object} options - Build options
- * @param {string} options.serversDir - Override servers directory
+ * @param {string} options.serversDir - Override servers directory (for local builds)
  * @param {string} options.distDir - Override dist directory
+ * @param {boolean} options.useGitHub - Fetch servers from GitHub instead of local filesystem
+ * @param {string} options.githubOwner - GitHub repository owner
+ * @param {string} options.githubRepo - GitHub repository name
+ * @param {string} options.githubBranch - GitHub branch name
  * @returns {Promise<{serverCount: number, distDir: string}>}
  */
 export async function build(options = {}) {
   // Allow runtime overrides (for programmatic use)
+  const useGitHub = options.useGitHub || process.argv.includes('--github');
   const serversDir = options.serversDir || SERVERS_DIR;
   const distDir = options.distDir || DIST_DIR;
   const apiDir = join(distDir, 'api', 'v0.1');
@@ -195,7 +204,14 @@ export async function build(options = {}) {
   const apiRoot = join(distDir, 'api');
   
   console.log('🔨 Building MCP Registry...');
-  console.log(`   📂 Source: ${serversDir}`);
+  if (useGitHub) {
+    const owner = options.githubOwner || process.env.GITHUB_OWNER || 'charris-msft';
+    const repo = options.githubRepo || process.env.GITHUB_REPO || 'registry.express';
+    const branch = options.githubBranch || process.env.GITHUB_BRANCH || 'main';
+    console.log(`   📡 Source: GitHub (${owner}/${repo}@${branch})`);
+  } else {
+    console.log(`   📂 Source: ${serversDir}`);
+  }
   console.log(`   📦 Output: ${distDir}\n`);
 
   // Clean dist directory
@@ -204,21 +220,32 @@ export async function build(options = {}) {
   }
   await ensureDir(distDir);
 
-  // Find all server files
-  const serverFiles = await findJsonFiles(serversDir);
-  console.log(`📦 Found ${serverFiles.length} server file(s)`);
+  // Load servers from GitHub or local filesystem
+  let servers = [];
+  
+  if (useGitHub) {
+    // Fetch servers from GitHub
+    servers = await fetchServersFromGitHub({
+      owner: options.githubOwner,
+      repo: options.githubRepo,
+      branch: options.githubBranch
+    });
+  } else {
+    // Find all server files locally
+    const serverFiles = await findJsonFiles(serversDir);
+    console.log(`📦 Found ${serverFiles.length} server file(s)`);
 
-  // Load all servers
-  const servers = [];
-  for (const file of serverFiles) {
-    try {
-      const loadedServers = await loadServerFile(file);
-      for (const server of loadedServers) {
-        servers.push(server);
-        console.log(`   ✓ ${server.name}`);
+    // Load all servers
+    for (const file of serverFiles) {
+      try {
+        const loadedServers = await loadServerFile(file);
+        for (const server of loadedServers) {
+          servers.push(server);
+          console.log(`   ✓ ${server.name}`);
+        }
+      } catch (err) {
+        console.error(`   ✗ ${file}: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`   ✗ ${file}: ${err.message}`);
     }
   }
 
@@ -473,10 +500,16 @@ async function watch() {
 
 // Run
 const isWatch = process.argv.includes('--watch');
+const isGitHub = process.argv.includes('--github');
+
 if (isWatch) {
+  if (isGitHub) {
+    console.error('❌ Watch mode is not supported with --github flag');
+    process.exit(1);
+  }
   watch();
 } else {
-  build().catch(err => {
+  build({ useGitHub: isGitHub }).catch(err => {
     console.error('Build failed:', err);
     process.exit(1);
   });
