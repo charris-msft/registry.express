@@ -42,11 +42,7 @@ All servers must conform to the **official MCP schema** (flat, single-version st
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "namespace/server-name",
   "title": "Friendly Display Name",
-  "description": "Human-readable description (max 100 chars)",
-  "version": "1.0.0",
-  "icons": [
-    { "src": "https://example.com/icon.png" }
-  ],
+  "description": "Human-readable description",
   "repository": {
     "url": "https://github.com/org/repo",
     "source": "github"
@@ -69,54 +65,7 @@ All servers must conform to the **official MCP schema** (flat, single-version st
 ### Important Fields
 
 - **`name`** (required): The server identifier in reverse-DNS format with exactly one slash (e.g., `io.github.user/server-name`). This is used as the unique identifier and **must match the key used in VS Code's mcp.json** for gallery enrichment to work.
-- **`title`** (required by this registry): A friendly display name shown in VS Code's MCP gallery (e.g., "My Awesome Server"). **Always ask for and include this field** - it makes the server much more user-friendly than the technical `name` field.
-- **`version`** (required): The server version string (e.g., "1.0.0"). Must be a specific version, not a range.
-- **`packages`** (recommended): Array of package distributions directly at the top level (NOT nested under `versions`).
-- **`icons`** (optional but recommended): Array of icon objects. Each icon has:
-  - `src` (required): HTTPS URL to the icon (PNG, JPEG, SVG, or WebP)
-  - `mimeType` (optional): One of `image/png`, `image/jpeg`, `image/svg+xml`, `image/webp`
-  - `sizes` (optional): Array of size strings like `"48x48"`, `"96x96"`, or `"any"` for SVG
-  - `theme` (optional): `"light"` or `"dark"` for theme-specific icons
-
-## Icon Handling
-
-For well-known MCP servers, **suggest appropriate icons**. For others, **ask if the user wants to provide one**.
-
-### Well-Known Icon Sources
-
-| Organization | Suggested Icon URL |
-|--------------|--------------------|
-| Microsoft | `https://raw.githubusercontent.com/microsoft/vscode-icons/main/icons/light/azure.svg` |
-| GitHub | `https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png` |
-| Anthropic | `https://cdn.simpleicons.org/anthropic` |
-| Google | `https://www.gstatic.com/images/branding/product/1x/googleg_48dp.png` |
-| AWS/Amazon | `https://a0.awsstatic.com/libra-css/images/logos/aws_smile-header-desktop-en-white_59x35.png` |
-| Supabase | `https://cdn.simpleicons.org/supabase` |
-| Upstash | Check their repository for official icons |
-
-### Icon Workflow
-
-1. **For well-known servers**: Suggest an appropriate icon URL based on the organization/product
-2. **Show the suggestion** to the user: "I suggest using this icon: [URL]. Does that look right?"
-3. **For unknown servers**: Ask the user: "Would you like to provide an icon URL for this server? (PNG recommended, HTTPS required)"
-4. **If user declines**: Omit the `icons` field entirely (the registry will display a default icon)
-5. **Validate**: Ensure the URL is HTTPS and points to a supported image format
-
-### Icon Format Example
-
-```json
-"icons": [
-  {
-    "src": "https://example.com/icon-48.png",
-    "sizes": ["48x48"]
-  },
-  {
-    "src": "https://example.com/icon.svg",
-    "mimeType": "image/svg+xml",
-    "sizes": ["any"]
-  }
-]
-```
+- **`title`** (optional but recommended): A friendly display name shown in VS Code's MCP gallery (e.g., "My Awesome Server"). If not provided, VS Code will display the `name` field.
 
 ## VS Code mcp.json Format Conversion
 
@@ -221,24 +170,6 @@ Ask the user where to save:
 - Validate required fields are present
 - If updating existing file, merge properly (don't overwrite existing servers)
 
-### Step 5: Review Changes (REQUIRED)
-
-Before committing, **always show the user what will be created/modified**:
-
-1. **Display the complete JSON** that will be written
-2. **Highlight key fields**: name, title, description, version, icons
-3. **Show the file path** where it will be saved
-4. **Ask for explicit confirmation**: "Does this look correct? Should I commit and push these changes?"
-
-**Only proceed after the user confirms.**
-
-### Step 6: Commit and Push (After User Approval)
-
-- **Wait for explicit user approval** before committing
-- Commit the new/updated server file(s) to the repository
-- Push to `main` branch (or create a PR if working on a feature branch)
-- **DO NOT run `npm run build`** - the GitHub Actions workflow handles this automatically on push
-
 ## Server Naming Conventions
 
 Names must follow reverse-DNS format with exactly one slash:
@@ -293,8 +224,8 @@ Response:
 
 ## Quality Checks Before Saving
 
-✅ Name matches pattern `^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$`
-✅ **Title is always provided** - a friendly display name different from the technical name
+✅ Name matches pattern `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*/[a-z][a-z0-9-]*$`
+✅ Title is provided for friendly display in gallery
 ✅ Description is between 1-100 characters (keep it concise!)
 ✅ Version is a specific version string (e.g., "1.0.0"), not a range
 ✅ Each package has registryType, identifier, and transport
@@ -315,10 +246,6 @@ Response:
 - **DO** ask clarifying questions when information is ambiguous
 - **DO** validate all inputs before creating files
 - **DO** show the user what will be created before writing
-- **DO** suggest icons for well-known servers (Microsoft, GitHub, Anthropic, etc.)
-- **DO** ask if the user wants to provide an icon for other servers
-- **DO** show complete JSON and ask for review before committing
-- **DO** wait for explicit user confirmation before committing and pushing
 - **DON'T** guess at critical values like version numbers
 - **DON'T** create files without user confirmation
 - **DON'T** commit or push without explicit user approval
