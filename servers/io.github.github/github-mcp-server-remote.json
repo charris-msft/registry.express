@@ -1,0 +1,22 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "name": "io.github.github/github-mcp-server-remote",
+  "title": "GitHub (Remote/OAuth)",
+  "description": "GitHub's official remote MCP server with OAuth authentication - no Docker or PAT required.",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/github/github-mcp-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "mcpb",
+      "identifier": "https://api.githubcopilot.com/mcp/",
+      "runtimeHint": "binary",
+      "transport": {
+        "type": "streamable-http",
+        "url": "https://api.githubcopilot.com/mcp/"
+      }
+    }
+  ]
+}

@@ -7,11 +7,16 @@
  * This ensures the registry only serves what's committed to the main branch.
  */
 
+import { getGitHubConfig } from './git-config.js';
+
 const GITHUB_API = 'https://api.github.com';
-const DEFAULT_OWNER = 'charris-msft';
-const DEFAULT_REPO = 'registry.express';
-const DEFAULT_BRANCH = 'main';
 const SERVERS_PATH = 'servers';
+
+// Get defaults from git remote or environment
+const gitConfig = getGitHubConfig();
+const DEFAULT_OWNER = gitConfig.owner;
+const DEFAULT_REPO = gitConfig.repo;
+const DEFAULT_BRANCH = gitConfig.branch;
 
 /**
  * Fetch JSON from GitHub API

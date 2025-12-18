@@ -16,13 +16,20 @@ A simplified [Model Context Protocol](https://modelcontextprotocol.io) (MCP) Reg
 
 ## Quick Start
 
-### 1. Install
+### 1. Fork & Clone
+
+> ⚠️ **Important**: You must **fork this repository first** to create your own private registry. The server reads MCP definitions from your GitHub repo, so you need your own copy to add custom servers.
+
+1. Click the **Fork** button at the top of this page
+2. Clone your forked repository:
 
 ```bash
-git clone https://github.com/charris-msft/registry.express.git
+git clone https://github.com/YOUR-USERNAME/registry.express.git
 cd registry.express
 npm install
 ```
+
+The server auto-detects your GitHub owner/repo from the git remote, so it will automatically serve servers from your fork.
 
 ### 2. Create SSL Certificates
 
@@ -50,7 +57,7 @@ npm start
 ```
 
 That's it! The server:
-- Fetches MCP servers from GitHub `main` branch on startup
+- Fetches MCP servers from your repo's `main` branch on startup
 - Refreshes the cache every 5 minutes
 - Serves at `https://localhost:3443`
 
@@ -109,12 +116,14 @@ Then in your `mcp.json`, add the `gallery` property to servers you want to enric
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `GITHUB_OWNER` | Repository owner | `charris-msft` |
-| `GITHUB_REPO` | Repository name | `registry.express` |
-| `GITHUB_BRANCH` | Branch to fetch from | `main` |
+| `GITHUB_OWNER` | Repository owner | Auto-detected from git remote |
+| `GITHUB_REPO` | Repository name | Auto-detected from git remote |
+| `GITHUB_BRANCH` | Branch to fetch from | Auto-detected (usually `main`) |
 | `GITHUB_TOKEN` | GitHub token (for higher rate limits) | (none) |
 | `MCP_PORT` | Server port | `3443` |
 | `REFRESH_INTERVAL` | Cache refresh interval in ms | `300000` (5 min) |
+
+> **Tip**: If you've forked and cloned this repo, the GitHub configuration is auto-detected from your git remote origin. No environment variables needed!
 ```
 
 ## Project Structure

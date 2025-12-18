@@ -6,10 +6,10 @@
  * Fetches servers from GitHub API at runtime and caches them in memory.
  * No build step required - servers are fetched on startup and refreshed every 5 minutes.
  * 
- * Environment variables:
- *   GITHUB_OWNER    - Repository owner (default: charris-msft)
- *   GITHUB_REPO     - Repository name (default: registry.express)
- *   GITHUB_BRANCH   - Branch to fetch from (default: main)
+ * GitHub configuration is auto-detected from git remote origin, or can be overridden:
+ *   GITHUB_OWNER    - Repository owner (auto-detected from git remote)
+ *   GITHUB_REPO     - Repository name (auto-detected from git remote)
+ *   GITHUB_BRANCH   - Branch to fetch from (auto-detected, defaults to main)
  *   GITHUB_TOKEN    - GitHub token for higher rate limits (optional)
  *   MCP_PORT        - Server port (default: 3443)
  *   REFRESH_INTERVAL - Cache refresh interval in ms (default: 300000 = 5 min)
@@ -21,6 +21,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { fetchServersFromGitHub } from './github-source.js';
+import { getGitHubConfig } from './git-config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.join(__dirname, '..');
@@ -29,9 +30,12 @@ const WEB_DIR = path.join(ROOT, 'src', 'web');
 // Configuration
 const PORT = parseInt(process.env.MCP_PORT) || 3443;
 const REFRESH_INTERVAL = parseInt(process.env.REFRESH_INTERVAL) || 5 * 60 * 1000; // 5 minutes
-const GITHUB_OWNER = process.env.GITHUB_OWNER || 'charris-msft';
-const GITHUB_REPO = process.env.GITHUB_REPO || 'registry.express';
-const GITHUB_BRANCH = process.env.GITHUB_BRANCH || 'main';
+
+// Get GitHub config from git remote or environment
+const gitConfig = getGitHubConfig();
+const GITHUB_OWNER = gitConfig.owner;
+const GITHUB_REPO = gitConfig.repo;
+const GITHUB_BRANCH = gitConfig.branch;
 
 // Schema constants
 const OFFICIAL_SCHEMA = 'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json';

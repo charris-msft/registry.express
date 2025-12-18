@@ -9,7 +9,7 @@
  *         dist/api/v0.1/servers/{name}/versions.json (per-server)
  *         dist/api/v0.1/servers/{name}/versions/{version}.json (per-version)
  * 
- * By default, fetches servers from GitHub main branch.
+ * By default, fetches servers from GitHub main branch (auto-detected from git remote).
  * Use --local flag to build from local filesystem instead.
  * Use --watch flag for local development with auto-rebuild.
  */
@@ -19,6 +19,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
 import { fetchServersFromGitHub } from './github-source.js';
+import { getGitHubConfig } from './git-config.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -237,11 +238,14 @@ export async function build(options = {}) {
   const apiV01Dir = join(distDir, 'v0.1');
   const apiRoot = join(distDir, 'api');
   
+  // Get GitHub config from git remote or environment
+  const gitConfig = getGitHubConfig();
+  
   console.log('🔨 Building MCP Registry...');
   if (useGitHub) {
-    const owner = options.githubOwner || process.env.GITHUB_OWNER || 'charris-msft';
-    const repo = options.githubRepo || process.env.GITHUB_REPO || 'registry.express';
-    const branch = options.githubBranch || process.env.GITHUB_BRANCH || 'main';
+    const owner = options.githubOwner || gitConfig.owner;
+    const repo = options.githubRepo || gitConfig.repo;
+    const branch = options.githubBranch || gitConfig.branch;
     console.log(`   📡 Source: GitHub (${owner}/${repo}@${branch})`);
   } else {
     console.log(`   📂 Source: ${serversDir}`);
