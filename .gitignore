@@ -44,4 +44,4 @@ coverage/
 *.pfx
 
 # Ignore files in servers directory until released
-servers/*
+# servers/*
