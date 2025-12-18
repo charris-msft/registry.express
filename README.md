@@ -61,9 +61,81 @@ That's it! The server:
 - Refreshes the cache every 5 minutes
 - Serves at `https://localhost:3443`
 
-### 4. Configure VS Code
+### 4. Add Servers to Your Registry
 
-Add these settings to use your private registry:
+Now add MCP servers to your registry. Choose one of these methods:
+
+#### Option A: AI Agent (Recommended)
+
+Use the **MCP Server Importer** agent in VS Code:
+
+1. Open VS Code with this repository
+2. Open Copilot Chat, click the agent dropdown (next to the model picker), and select **MCP Server Importer**
+3. Tell the agent what you want to import:
+   - `"Import the Postgres server from my mcp.json"` 
+   - `"Add the MCP server from https://github.com/microsoft/playwright-mcp"`
+   - `"Search the official MCP registry for all microsoft mcp servers and import them"`
+
+The agent will create the registry file. Commit and push to GitHub - changes appear in the registry within 5 minutes.
+
+#### Option B: CLI Import
+
+Import from the official MCP Registry:
+
+```bash
+# Search for servers
+npm run cli -- search "azure"
+
+# Import latest version
+npm run cli -- import "com.microsoft/azure"
+
+# Import all versions
+npm run cli -- import "com.microsoft/azure" --all-versions
+```
+
+#### Option C: Manual JSON File
+
+<details>
+<summary>Create a JSON file in <code>servers/</code> and push to GitHub</summary>
+
+```json
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.user/my-server",
+  "title": "My Server",
+  "description": "My awesome MCP server",
+  "version": "1.0.0",
+  "repository": {
+    "url": "https://github.com/user/my-server",
+    "source": "github"
+  },
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@user/my-server",
+      "runtimeHint": "npx",
+      "transport": { "type": "stdio" }
+    }
+  ]
+}
+```
+
+> **Note**: The `name` field is the unique identifier and should match the key in your mcp.json for gallery enrichment.
+
+</details>
+
+### 5. Configure MCP Access
+
+For enterprise/organization use, configure MCP server access policies in your GitHub settings. This allows your team to use servers from your private registry.
+
+📖 **See**: [Configure MCP server access](https://docs.github.com/en/copilot/how-tos/administer-copilot/manage-mcp-usage/configure-mcp-server-access)
+
+<details>
+<summary><strong>🧪 Local Testing (Optional)</strong></summary>
+
+For local development and testing, you can point VS Code directly at your local server:
+
+1. Add these VS Code settings:
 
 ```json
 {
@@ -72,7 +144,7 @@ Add these settings to use your private registry:
 }
 ```
 
-Then in your `mcp.json`, add the `gallery` property to servers you want to enrich:
+2. In your `mcp.json`, add the `gallery` property to servers you want to enrich:
 
 ```json
 {
@@ -86,6 +158,8 @@ Then in your `mcp.json`, add the `gallery` property to servers you want to enric
   }
 }
 ```
+
+</details>
 
 ## Commands
 
@@ -124,7 +198,6 @@ Then in your `mcp.json`, add the `gallery` property to servers you want to enric
 | `REFRESH_INTERVAL` | Cache refresh interval in ms | `300000` (5 min) |
 
 > **Tip**: If you've forked and cloned this repo, the GitHub configuration is auto-detected from your git remote origin. No environment variables needed!
-```
 
 ## Project Structure
 
@@ -145,64 +218,6 @@ registry.express/
 │   └── web/                   # Web UI source
 └── schemas/                    # JSON schemas
 ```
-
-## Adding Servers
-
-### Option 1: AI Agent (Recommended)
-
-Use the **MCP Server Importer** agent in VS Code to add servers interactively:
-
-1. Open VS Code with this repository
-2. Open Copilot Chat and type `@MCP Server Importer`
-3. Choose your import method:
-   - **"Import from my mcp.json"** - Select servers from your VS Code MCP configuration
-   - **"Import from URL"** - Provide a GitHub repo or documentation URL
-   - **"Add from JSON"** - Paste raw JSON configuration
-
-The agent will create the registry file, commit, and push to GitHub. Changes appear in the registry within 5 minutes (or immediately with `POST /_refresh`).
-
-### Option 2: CLI Import
-
-Import from the official MCP Registry:
-
-```bash
-# Search for servers
-npm run cli -- search "azure"
-
-# Import latest version
-npm run cli -- import "com.microsoft/azure"
-
-# Import all versions
-npm run cli -- import "com.microsoft/azure" --all-versions
-```
-
-### Option 3: Manual JSON File
-
-Create a JSON file in `servers/` and push to GitHub:
-
-```json
-{
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.user/my-server",
-  "title": "My Server",
-  "description": "My awesome MCP server",
-  "version": "1.0.0",
-  "repository": {
-    "url": "https://github.com/user/my-server",
-    "source": "github"
-  },
-  "packages": [
-    {
-      "registryType": "npm",
-      "identifier": "@user/my-server",
-      "runtimeHint": "npx",
-      "transport": { "type": "stdio" }
-    }
-  ]
-}
-```
-
-> **Note**: The `name` field is the unique identifier and should match the key in your mcp.json for gallery enrichment.
 
 ## Schema
 

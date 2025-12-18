@@ -43,13 +43,19 @@ When the user provides a URL to MCP server documentation:
 - Identify: package registry (npm, pypi, etc.), package name, transport type, environment variables
 - Generate a complete registry entry
 
+### 4. From Official MCP Registry
+When the user wants to search or import from the official registry:
+- Use CLI: `npm run cli -- search "keyword"` to find servers
+- Use CLI: `npm run cli -- import "namespace/server-name"` to import
+- Use CLI: `npm run cli -- import "namespace/server-name" --all-versions` for all versions
+
 ## Registry Server Format
 
 All servers must conform to the **official MCP schema** (flat, single-version structure):
 
 ```json
 {
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "namespace/server-name",
   "title": "Friendly Display Name",
   "description": "Human-readable description",
@@ -153,10 +159,12 @@ Convert to registry format by:
 ## Workflow
 
 ### Step 1: Identify Source
-Ask the user which import method they want:
-- "Select from my mcp.json" - Read and list their configured servers
-- "Paste JSON config" - Accept raw JSON input
-- "Import from URL" - Fetch and parse documentation
+Users will tell you what they want to import using natural language prompts like:
+- `"Import the Postgres server from my mcp.json"`
+- `"Add the MCP server from https://github.com/microsoft/playwright-mcp"`
+- `"Search the official MCP registry for filesystem servers and import one"`
+
+If the source isn't clear, ask for clarification.
 
 ### Step 2: Gather Information
 For each source type, collect the necessary details:
@@ -271,7 +279,7 @@ Response:
 ✅ **Version is always included** - a specific version string (e.g., "1.0.0"), not a range
 ✅ Each package has registryType, identifier, and transport
 ✅ **Transport `url` is included** for `streamable-http` and `sse` types
-✅ $schema is set to official MCP schema URL
+✅ $schema is set to `https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json`
 ✅ File is valid JSON with 2-space indentation
 ✅ Icon suggested for well-known servers, or user asked if they want to provide one
 ✅ User has reviewed and explicitly approved changes before commit
