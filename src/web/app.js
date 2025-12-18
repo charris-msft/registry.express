@@ -3,7 +3,7 @@
  */
 
 const OFFICIAL_REGISTRY = 'https://registry.modelcontextprotocol.io';
-const LOCAL_API = '/api/v0.1';
+const LOCAL_API = '/v0.1';
 
 // GitHub OAuth configuration (to be set by the user)
 const GITHUB_CLIENT_ID = localStorage.getItem('github_client_id') || '';
@@ -70,11 +70,13 @@ function switchTab(tabId) {
 // Local Server Management
 async function loadLocalServers() {
   try {
-    const response = await fetch(`${LOCAL_API}/servers.json`);
+    const response = await fetch(`${LOCAL_API}/servers`);
     if (!response.ok) throw new Error('Failed to load servers');
 
     const data = await response.json();
-    localServers = data.servers || [];
+    // Handle the wrapped format: { servers: [{ server: {...}, _meta: {...} }, ...] }
+    const rawServers = data.servers || [];
+    localServers = rawServers.map(item => item.server ? item.server : item);
     renderLocalServers(localServers);
   } catch (err) {
     serverList.innerHTML = `
@@ -188,7 +190,7 @@ async function showServerDetail(serverName, source) {
   try {
     const url = source === 'official'
       ? `${OFFICIAL_REGISTRY}/v0/servers/${encodedName}/versions/latest`
-      : `${LOCAL_API}/servers/${encodedName}/versions/latest.json`;
+      : `${LOCAL_API}/servers/${encodedName}/versions/latest`;
 
     const response = await fetch(url);
     if (!response.ok) throw new Error('Failed to load server details');
@@ -203,17 +205,13 @@ async function showServerDetail(serverName, source) {
     try {
       const versionsUrl = source === 'official'
         ? `${OFFICIAL_REGISTRY}/v0/servers/${encodedName}/versions`
-        : `${LOCAL_API}/servers/${encodedName}/versions.json`;
+        : `${LOCAL_API}/servers/${encodedName}/versions`;
       const versionsResponse = await fetch(versionsUrl);
       if (versionsResponse.ok) {
         const versionsData = await versionsResponse.json();
-        if (source === 'official') {
-          // Official registry returns {servers: [{server, _meta}, ...]}
-          const rawServers = versionsData.servers || [];
-          versions = rawServers.map(s => s.server ? s.server : s);
-        } else {
-          versions = versionsData.versions || [server];
-        }
+        // Both official and local use wrapped format: {servers: [{server, _meta}, ...]}
+        const rawServers = versionsData.servers || [];
+        versions = rawServers.map(s => s.server ? s.server : s);
       }
     } catch (e) { /* ignore */ }
 

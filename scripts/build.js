@@ -4,26 +4,36 @@
  * Build script that aggregates individual server JSON files into
  * the API-compatible format for static hosting.
  *
- * Input:  servers/**\/*.json (one file per MCP server)
+ * Input:  GitHub repository (default) OR local servers/**\/*.json
  * Output: dist/api/v0.1/servers.json (aggregated list)
  *         dist/api/v0.1/servers/{name}/versions.json (per-server)
  *         dist/api/v0.1/servers/{name}/versions/{version}.json (per-version)
+ * 
+ * By default, fetches servers from GitHub main branch.
+ * Use --local flag to build from local filesystem instead.
+ * Use --watch flag for local development with auto-rebuild.
  */
 
 import { readdir, readFile, writeFile, mkdir, cp, rm } from 'fs/promises';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync } from 'fs';
+import { fetchServersFromGitHub } from './github-source.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
-const SERVERS_DIR = join(ROOT, 'servers');
-const DIST_DIR = join(ROOT, 'dist');
+
+// Allow environment variable overrides for remote repo support
+const SERVERS_DIR = process.env.MCP_SERVERS_DIR || join(ROOT, 'servers');
+const DIST_DIR = process.env.MCP_DIST_DIR || join(ROOT, 'dist');
 const API_DIR = join(DIST_DIR, 'api', 'v0.1');
 const API_V0_DIR = join(DIST_DIR, 'v0'); // VS Code compatible API path (v0)
 const API_V01_DIR = join(DIST_DIR, 'v0.1'); // VS Code compatible API path (v0.1 - tried first)
 const API_ROOT = join(DIST_DIR, 'api');
 const WEB_DIR = join(ROOT, 'src', 'web');
+
+// Export paths for use by other modules
+export { SERVERS_DIR, DIST_DIR, ROOT };
 
 // Registry metadata
 const REGISTRY_VERSION = '0.1.0';
@@ -50,7 +60,10 @@ async function findJsonFiles(dir, files = []) {
 
 /**
  * Load and validate a server JSON file
- * Supports both single server format and multi-server format (servers array)
+ * Supports:
+ * - Multi-server format (has "servers" array)
+ * - Flat official MCP schema (top-level version + packages)
+ * - Internal versioned format (versions array with packages)
  */
 async function loadServerFile(filePath) {
   const content = await readFile(filePath, 'utf-8');
@@ -59,20 +72,50 @@ async function loadServerFile(filePath) {
   // Check if it's a multi-server file (has "servers" array)
   if (data.servers && Array.isArray(data.servers)) {
     // Validate each server in the array
+    const result = [];
     for (const server of data.servers) {
-      if (!server.name || !server.description || !server.versions) {
-        throw new Error(`Invalid server in ${filePath}: missing required fields (name, description, or versions)`);
-      }
+      result.push(normalizeServer(server, filePath));
     }
-    return data.servers;
+    return result;
   }
 
   // Single server format
-  if (!data.name || !data.description || !data.versions) {
-    throw new Error(`Invalid server file ${filePath}: missing required fields`);
+  return [normalizeServer(data, filePath)];
+}
+
+/**
+ * Normalize server to internal format (with versions array)
+ * Supports both flat schema (version + packages) and versioned schema (versions array)
+ */
+function normalizeServer(data, filePath) {
+  if (!data.name || !data.description) {
+    throw new Error(`Invalid server in ${filePath}: missing required fields (name or description)`);
   }
 
-  return [data]; // Return as array for consistent handling
+  // Flat official MCP schema (top-level version + packages)
+  if (data.version && data.packages && !data.versions) {
+    return {
+      name: data.name,
+      title: data.title,
+      description: data.description,
+      repository: data.repository,
+      websiteUrl: data.websiteUrl,
+      icons: data.icons,
+      versions: [{
+        version: data.version,
+        isLatest: true,
+        packages: data.packages,
+        remotes: data.remotes
+      }]
+    };
+  }
+
+  // Internal versioned format
+  if (data.versions && Array.isArray(data.versions)) {
+    return data;
+  }
+
+  throw new Error(`Invalid server in ${filePath}: missing version+packages or versions array`);
 }
 
 /**
@@ -175,31 +218,68 @@ function encodeServerName(name) {
 
 /**
  * Main build function
+ * @param {Object} options - Build options
+ * @param {string} options.serversDir - Override servers directory (for local builds)
+ * @param {string} options.distDir - Override dist directory
+ * @param {boolean} options.useGitHub - Fetch servers from GitHub instead of local filesystem
+ * @param {string} options.githubOwner - GitHub repository owner
+ * @param {string} options.githubRepo - GitHub repository name
+ * @param {string} options.githubBranch - GitHub branch name
+ * @returns {Promise<{serverCount: number, distDir: string}>}
  */
-async function build() {
-  console.log('🔨 Building MCP Registry...\n');
+export async function build(options = {}) {
+  // Allow runtime overrides (for programmatic use)
+  const useGitHub = options.useGitHub || process.argv.includes('--github');
+  const serversDir = options.serversDir || SERVERS_DIR;
+  const distDir = options.distDir || DIST_DIR;
+  const apiDir = join(distDir, 'api', 'v0.1');
+  const apiV0Dir = join(distDir, 'v0');
+  const apiV01Dir = join(distDir, 'v0.1');
+  const apiRoot = join(distDir, 'api');
+  
+  console.log('🔨 Building MCP Registry...');
+  if (useGitHub) {
+    const owner = options.githubOwner || process.env.GITHUB_OWNER || 'charris-msft';
+    const repo = options.githubRepo || process.env.GITHUB_REPO || 'registry.express';
+    const branch = options.githubBranch || process.env.GITHUB_BRANCH || 'main';
+    console.log(`   📡 Source: GitHub (${owner}/${repo}@${branch})`);
+  } else {
+    console.log(`   📂 Source: ${serversDir}`);
+  }
+  console.log(`   📦 Output: ${distDir}\n`);
 
   // Clean dist directory
-  if (existsSync(DIST_DIR)) {
-    await rm(DIST_DIR, { recursive: true });
+  if (existsSync(distDir)) {
+    await rm(distDir, { recursive: true, force: true });
   }
-  await ensureDir(DIST_DIR);
+  await ensureDir(distDir);
 
-  // Find all server files
-  const serverFiles = await findJsonFiles(SERVERS_DIR);
-  console.log(`📦 Found ${serverFiles.length} server file(s)`);
+  // Load servers from GitHub or local filesystem
+  let servers = [];
+  
+  if (useGitHub) {
+    // Fetch servers from GitHub
+    servers = await fetchServersFromGitHub({
+      owner: options.githubOwner,
+      repo: options.githubRepo,
+      branch: options.githubBranch
+    });
+  } else {
+    // Find all server files locally
+    const serverFiles = await findJsonFiles(serversDir);
+    console.log(`📦 Found ${serverFiles.length} server file(s)`);
 
-  // Load all servers
-  const servers = [];
-  for (const file of serverFiles) {
-    try {
-      const loadedServers = await loadServerFile(file);
-      for (const server of loadedServers) {
-        servers.push(server);
-        console.log(`   ✓ ${server.name}`);
+    // Load all servers
+    for (const file of serverFiles) {
+      try {
+        const loadedServers = await loadServerFile(file);
+        for (const server of loadedServers) {
+          servers.push(server);
+          console.log(`   ✓ ${server.name}`);
+        }
+      } catch (err) {
+        console.error(`   ✗ ${file}: ${err.message}`);
       }
-    } catch (err) {
-      console.error(`   ✗ ${file}: ${err.message}`);
     }
   }
 
@@ -212,7 +292,7 @@ async function build() {
     total: servers.length,
     generated: new Date().toISOString()
   };
-  await writeJson(join(API_DIR, 'servers.json'), serverList);
+  await writeJson(join(apiDir, 'servers.json'), serverList);
   console.log(`\n📄 Generated servers.json (${servers.length} servers)`);
 
   // Generate VS Code compatible /v0/servers endpoint
@@ -231,16 +311,16 @@ async function build() {
   };
   // Write to /v0/servers/index.json and /v0.1/servers/index.json
   // VS Code tries v0.1 first, then falls back to v0
-  await writeJson(join(API_V0_DIR, 'servers', 'index.json'), vsCodeResponse);
-  await writeJson(join(API_V01_DIR, 'servers', 'index.json'), vsCodeResponse);
+  await writeJson(join(apiV0Dir, 'servers', 'index.json'), vsCodeResponse);
+  await writeJson(join(apiV01Dir, 'servers', 'index.json'), vsCodeResponse);
   console.log('📄 Generated VS Code compatible /v0/servers and /v0.1/servers endpoints');
 
   // Generate per-server and per-version files
   for (const server of servers) {
     const encodedName = encodeServerName(server.name);
-    const serverDir = join(API_DIR, 'servers', encodedName);
-    const v0ServerDir = join(API_V0_DIR, 'servers', encodedName);
-    const v01ServerDir = join(API_V01_DIR, 'servers', encodedName);
+    const serverDir = join(apiDir, 'servers', encodedName);
+    const v0ServerDir = join(apiV0Dir, 'servers', encodedName);
+    const v01ServerDir = join(apiV01Dir, 'servers', encodedName);
 
     // /servers/{name}/versions.json
     await writeJson(
@@ -299,21 +379,21 @@ async function build() {
 
   // Copy web assets
   if (existsSync(WEB_DIR)) {
-    await cp(WEB_DIR, DIST_DIR, { recursive: true });
+    await cp(WEB_DIR, distDir, { recursive: true });
     console.log('📄 Copied web assets');
   }
 
   // Copy serve.json for static server configuration
   const serveJsonPath = join(ROOT, 'serve.json');
   if (existsSync(serveJsonPath)) {
-    await cp(serveJsonPath, join(DIST_DIR, 'serve.json'));
+    await cp(serveJsonPath, join(distDir, 'serve.json'));
     console.log('📄 Copied serve.json');
   }
 
   // Copy schemas
   const schemasDir = join(ROOT, 'schemas');
   if (existsSync(schemasDir)) {
-    await cp(schemasDir, join(DIST_DIR, 'schemas'), { recursive: true });
+    await cp(schemasDir, join(distDir, 'schemas'), { recursive: true });
     console.log('📄 Copied schemas');
   }
 
@@ -345,21 +425,26 @@ async function build() {
       }
     ]
   };
-  await writeJson(join(API_ROOT, 'index.json'), discoveryDoc);
+  await writeJson(join(apiRoot, 'index.json'), discoveryDoc);
   console.log('📄 Generated discovery document (api/index.json)');
 
   // Generate simple HTML index (PEP 503-style)
-  await generateSimpleIndex(servers);
+  await generateSimpleIndex(servers, apiRoot);
   console.log('📄 Generated simple index (api/simple/)');
 
-  console.log('\n✅ Build complete! Output in dist/');
+  console.log(`\n✅ Build complete! Output in ${distDir}`);
+  
+  // Return build info for programmatic use
+  return { serverCount: servers.length, distDir };
 }
 
 /**
  * Generate a PEP 503-style simple index for easy browsing
+ * @param {Array} servers - Array of server objects
+ * @param {string} apiRoot - Path to the API root directory
  */
-async function generateSimpleIndex(servers) {
-  const simpleDir = join(API_ROOT, 'simple');
+async function generateSimpleIndex(servers, apiRoot = API_ROOT) {
+  const simpleDir = join(apiRoot, 'simple');
   await ensureDir(simpleDir);
 
   // Root index: list of all server names
@@ -449,10 +534,14 @@ async function watch() {
 
 // Run
 const isWatch = process.argv.includes('--watch');
+const isLocal = process.argv.includes('--local');
+
 if (isWatch) {
+  // Watch mode always uses local filesystem
   watch();
 } else {
-  build().catch(err => {
+  // Default: use GitHub. Use --local flag to build from local filesystem
+  build({ useGitHub: !isLocal }).catch(err => {
     console.error('Build failed:', err);
     process.exit(1);
   });

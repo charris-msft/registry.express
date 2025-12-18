@@ -42,8 +42,7 @@ All servers must conform to the **official MCP schema** (flat, single-version st
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-10-17/server.schema.json",
   "name": "namespace/server-name",
   "title": "Friendly Display Name",
-  "description": "Human-readable description (max 100 chars)",
-  "version": "1.0.0",
+  "description": "Human-readable description",
   "repository": {
     "url": "https://github.com/org/repo",
     "source": "github"
@@ -66,9 +65,7 @@ All servers must conform to the **official MCP schema** (flat, single-version st
 ### Important Fields
 
 - **`name`** (required): The server identifier in reverse-DNS format with exactly one slash (e.g., `io.github.user/server-name`). This is used as the unique identifier and **must match the key used in VS Code's mcp.json** for gallery enrichment to work.
-- **`version`** (required): The server version string (e.g., "1.0.0"). Must be a specific version, not a range.
 - **`title`** (optional but recommended): A friendly display name shown in VS Code's MCP gallery (e.g., "My Awesome Server"). If not provided, VS Code will display the `name` field.
-- **`packages`** (recommended): Array of package distributions directly at the top level (NOT nested under `versions`).
 
 ## VS Code mcp.json Format Conversion
 
@@ -119,7 +116,7 @@ Convert to registry format by:
    - npm packages starting with `@org/` → `com.org/package-name`
    - npm packages like `package-mcp` → ask user for namespace or use `io.github.unknown/package-name`
    - Python packages → similar logic
-2. **Title**: Ask user for a friendly display name (shown in MCP gallery view)
+2. **Title**: **Always ask** for a friendly display name (e.g., "Azure MCP" instead of "com.microsoft/azure"). This is shown in the MCP gallery and makes the server discoverable.
 3. **registryType**: Infer from command
    - `npx` → `npm`
    - `uvx` or `python` → `pypi`
@@ -172,12 +169,6 @@ Ask the user where to save:
 - Ensure `$schema` is set correctly
 - Validate required fields are present
 - If updating existing file, merge properly (don't overwrite existing servers)
-
-### Step 5: Commit and Push
-- **DO NOT run `npm run build`** - the GitHub Actions workflow handles this automatically
-- Commit the new/updated server file(s) to the repository
-- Push to `main` branch (or create a PR if working on a feature branch)
-- The build and deploy will happen automatically via GitHub Actions
 
 ## Server Naming Conventions
 
@@ -233,13 +224,15 @@ Response:
 
 ## Quality Checks Before Saving
 
-✅ Name matches pattern `^[a-zA-Z0-9.-]+/[a-zA-Z0-9._-]+$`
+✅ Name matches pattern `^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)*/[a-z][a-z0-9-]*$`
 ✅ Title is provided for friendly display in gallery
 ✅ Description is between 1-100 characters (keep it concise!)
 ✅ Version is a specific version string (e.g., "1.0.0"), not a range
 ✅ Each package has registryType, identifier, and transport
 ✅ $schema is set to official MCP schema URL
 ✅ File is valid JSON with 2-space indentation
+✅ Icon suggested for well-known servers, or user asked if they want to provide one
+✅ User has reviewed and explicitly approved changes before commit
 
 ## Error Handling
 
@@ -253,8 +246,8 @@ Response:
 - **DO** ask clarifying questions when information is ambiguous
 - **DO** validate all inputs before creating files
 - **DO** show the user what will be created before writing
-- **DO** commit and push changes to GitHub after creating files
-- **DON'T** run `npm run build` - GitHub Actions handles this automatically on push
 - **DON'T** guess at critical values like version numbers
 - **DON'T** create files without user confirmation
+- **DON'T** commit or push without explicit user approval
 - **DON'T** overwrite existing servers without asking
+- **DON'T** run `npm run build` - GitHub Actions handles this automatically
