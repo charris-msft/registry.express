@@ -43,43 +43,6 @@
           ]
         }
       ]
-    },
-    {
-      "name": "io.github.example/database",
-      "description": "PostgreSQL database access with query capabilities",
-      "repository": {
-        "url": "https://github.com/example/mcp-servers",
-        "source": "github",
-        "subfolder": "packages/database"
-      },
-      "versions": [
-        {
-          "version": "2.0.0",
-          "releaseDate": "2024-12-10",
-          "isLatest": true,
-          "packages": [
-            {
-              "registryType": "npm",
-              "identifier": "@example/mcp-database",
-              "runtimeHint": "npx",
-              "transport": { "type": "stdio" },
-              "environmentVariables": [
-                {
-                  "name": "DATABASE_URL",
-                  "description": "PostgreSQL connection string",
-                  "required": true
-                }
-              ]
-            },
-            {
-              "registryType": "oci",
-              "identifier": "ghcr.io/example/mcp-database:2.0.0",
-              "runtimeHint": "docker",
-              "transport": { "type": "stdio" }
-            }
-          ]
-        }
-      ]
     }
   ]
 }
